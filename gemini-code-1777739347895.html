@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>健康冒險：雙人合作版 (修復版)</title>
+    <style>
+        :root {
+            --pico-blue: #4ea5ff;
+            --pico-pink: #ff7bac;
+            --pico-yellow: #f1c40f;
+            --pico-dark: #2c3e50;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: var(--pico-dark);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: white;
+            min-height: 100vh;
+            overflow-y: auto; /* 允許垂直捲動，解決螢幕太扁看不到題目的問題 */
+            padding-bottom: 50px;
+        }
+
+        #game-info {
+            padding: 15px;
+            text-align: center;
+        }
+
+        #stage-container {
+            position: relative;
+            width: 95%;
+            max-width: 800px;
+            height: 320px; /* 稍微縮小遊戲框高度 */
+            background-color: #34495e;
+            border: 4px solid white;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        /* 門與鑰匙 */
+        #door {
+            position: absolute;
+            right: 20px;
+            bottom: 20px;
+            width: 50px;
+            height: 70px;
+            background-color: #8e44ad;
+            border: 3px solid white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+        }
+
+        #key {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 30px;
+            display: none;
+            z-index: 10;
+        }
+
+        /* 角色 */
+        .character {
+            position: absolute;
+            width: 35px;
+            height: 35px;
+            border: 3px solid white;
+            border-radius: 5px;
+            font-size: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: all 0.05s linear;
+        }
+
+        #playerA { background-color: var(--pico-blue); left: 50px; top: 250px; }
+        #playerB { background-color: var(--pico-pink); left: 100px; top: 250px; }
+
+        /* 問題區域 */
+        #quiz-panel {
+            width: 95%;
+            max-width: 800px;
+            background: white;
+            color: #333;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+
+        #options-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 15px;
+        }
+
+        .option-btn {
+            padding: 12px;
+            background: #f8f9fa;
+            border: 2px solid #dee2e6;
+            cursor: pointer;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+
+        .option-btn:hover {
+            background: #e9ecef;
+            border-color: var(--pico-blue);
+        }
+
+        h1 { font-size: 1.5rem; margin: 5px 0; }
+        h3 { margin-top: 0; color: var(--pico-dark); }
+    </style>
+</head>
+<body>
+
+<div id="game-info">
+    <h1>健康知識冒險 (PICO Style)</h1>
+    <p>玩家 A (滑鼠答題) ｜ 玩家 B (WASD 移動)</p>
+    <h2 id="level-title">載入中...</h2>
+</div>
+
+<div id="stage-container">
+    <div id="door">🚪</div>
+    <div id="key">🔑</div>
+    <div id="playerA" class="character">😎</div>
+    <div id="playerB" class="character">🤓</div>
+</div>
+
+<div id="quiz-panel">
+    <h3 id="question-text">正在準備健康挑戰...</h3>
+    <div id="options-grid"></div>
+</div>
+
+<script>
+    const levels = [
+        { q: "成人每日建議飲水量是體重(kg)乘以多少？", options: ["10ml", "20ml", "30-35ml", "100ml"], correct: 2 },
+        { q: "下列哪種運動最能有效增進心肺功能？", options: ["靜坐冥想", "有氧慢跑", "睡午覺", "玩手機"], correct: 1 },
+        { q: "正確洗手步驟「內外夾弓大立腕」，最後一個動作是？", options: ["洗手掌", "洗手背", "洗指尖", "洗手腕"], correct: 3 },
+        { q: "為了眼睛健康，用眼每30分鐘應該休息幾分鐘？", options: ["1分鐘", "10分鐘", "30分鐘", "不必休息"], correct: 1 }
+    ];
+
+    let currentLevel = 0;
+    let hasKey = false;
+    let quizSolved = false;
+    let posB = { x: 100, y: 250 };
+
+    function initLevel() {
+        quizSolved = false;
+        hasKey = false;
+        document.getElementById('key').style.display = 'none';
+        document.getElementById('level-title').innerText = `第 ${currentLevel + 1} 關`;
+        document.getElementById('question-text').innerText = levels[currentLevel].q;
+        
+        const optionsGrid = document.getElementById('options-grid');
+        optionsGrid.innerHTML = '';
+        levels[currentLevel].options.forEach((opt, i) => {
+            const btn = document.createElement('div');
+            btn.className = 'option-btn';
+            btn.innerText = opt;
+            btn.onclick = () => {
+                if(i === levels[currentLevel].correct) {
+                    alert("回答正確！鑰匙出現在地圖中央了！");
+                    quizSolved = true;
+                    document.getElementById('key').style.display = 'block';
+                } else {
+                    alert("答錯囉，再想想看！");
+                }
+            };
+            optionsGrid.appendChild(btn);
+        });
+    }
+
+    // 鍵盤監聽
+    window.addEventListener('keydown', (e) => {
+        const step = 15;
+        const container = document.getElementById('stage-container');
+        const pB = document.getElementById('playerB');
+
+        if (e.key === 'w' || e.key === 'W') posB.y -= step;
+        if (e.key === 's' || e.key === 'S') posB.y += step;
+        if (e.key === 'a' || e.key === 'A') posB.x -= step;
+        if (e.key === 'd' || e.key === 'D') posB.x += step;
+
+        // 邊界限制
+        posB.x = Math.max(0, Math.min(posB.x, container.clientWidth - 40));
+        posB.y = Math.max(0, Math.min(posB.y, container.clientHeight - 40));
+
+        pB.style.left = posB.x + 'px';
+        pB.style.top = posB.y + 'px';
+
+        checkCollision();
+    });
+
+    function checkCollision() {
+        // 觸碰鑰匙
+        if (quizSolved && !hasKey) {
+            const key = document.getElementById('key');
+            // 判斷是否接近中央 (400, 160)
+            if (Math.abs(posB.x - 380) < 50 && Math.abs(posB.y - 140) < 50) {
+                hasKey = true;
+                key.style.display = 'none';
+                alert("拿到了！快去右下角的紫色傳送門！");
+            }
+        }
+
+        // 觸碰大門
+        if (hasKey) {
+            if (posB.x > 700 && posB.y > 230) {
+                alert("恭喜過關！");
+                currentLevel++;
+                if (currentLevel < levels.length) {
+                    posB = { x: 100, y: 250 };
+                    document.getElementById('playerB').style.left = '100px';
+                    document.getElementById('playerB').style.top = '250px';
+                    initLevel();
+                } else {
+                    alert("🎉 恭喜！你們共同完成了所有健康挑戰！");
+                    location.reload();
+                }
+            }
+        }
+    }
+
+    initLevel();
+</script>
+
+</body>
+</html>
